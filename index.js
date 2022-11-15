@@ -41,6 +41,8 @@ const appointmentOptionCollection = client
   .db("doctorsPortal")
   .collection("appointmentOptions");
 
+const bookingsCollection = client.db("doctorsPortal").collection("bookings");
+
 // ** Apis
 
 app.get("/appointmentoptions", async (req, res) => {
@@ -61,7 +63,24 @@ app.get("/appointmentoptions", async (req, res) => {
   }
 });
 
-console.log(uri);
+app.post("/bookings", async (req, res) => {
+  try {
+    const booking = req.body;
+    console.log(booking);
+
+    const result = await bookingsCollection.insertOne(booking);
+
+    return res.send({
+      success: true,
+      message: `Booking has been confirmed`,
+    });
+  } catch (error) {
+    res.send({
+      success: false,
+      message: error.message,
+    });
+  }
+});
 
 // ** app listen
 
