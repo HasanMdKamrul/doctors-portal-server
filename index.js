@@ -1,3 +1,4 @@
+const { MongoClient, ServerApiVersion } = require("mongodb");
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
@@ -12,6 +13,55 @@ app.use(express.json());
 // ** test server
 
 app.get("/", async (req, res) => res.send(`Doctors portal is running `));
+
+// ** DB Connections
+
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.7ikallh.mongodb.net/?retryWrites=true&w=majority`;
+const client = new MongoClient(uri, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  serverApi: ServerApiVersion.v1,
+});
+
+// ** DB Connection
+const run = async () => {
+  try {
+    await client.connect();
+    console.log("db Connected");
+  } catch (error) {
+    console.log(error.message);
+  }
+};
+
+run();
+
+// ** DB collections
+
+const appointmentOptionCollection = client
+  .db("doctorsPortal")
+  .collection("appointmentOptions");
+
+// ** Apis
+
+app.get("/appointmentoptions", async (req, res) => {
+  try {
+    const query = {};
+    const options = await appointmentOptionCollection.find(query).toArray();
+
+    return res.send({
+      success: true,
+      data: options,
+      message: `appointment options fetched successfully`,
+    });
+  } catch (error) {
+    res.send({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
+console.log(uri);
 
 // ** app listen
 
