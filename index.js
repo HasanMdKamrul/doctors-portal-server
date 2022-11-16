@@ -47,34 +47,39 @@ const bookingsCollection = client.db("doctorsPortal").collection("bookings");
 
 app.get("/appointmentoptions", async (req, res) => {
   try {
+    // ** steps
+    /* 
+    1. Kono perticular date e kono ekta treatment option er kono ekta slot a booking howar por j j slot faka thake ta ber kora holo kaj 
+    2. Perticular date a total booking nilam -> koto gula option er vinno vinno time slot a booking ase 
+    3. ekhon sort korbo first prottekta treatment option er moddhe diye jabo oi option er sathe kono booking data match kore kina ber korbo 
+    4. jodi match kore or jader ta filter kore match korbe -> sei sei booking data r vitor diye map chalay prottektar vitor theke tader joto gula slot booked oi info ber kore nibo 
+    5. Eibar remaining ta main option er slots k map kore bookedSlotes.includes(slot) ber kore niye option er slot hisabe set kore dibo 
+    */
+
     const date = req.query.date;
 
     const query = {};
     const options = await appointmentOptionCollection.find(query).toArray();
 
-    // ** ekhon amra j date pailam ei date er against a koto gula booking ase total booking ta ber kore felbo
+    // ** ei date er shob booking chai
+    // ** particular date er shob booking dorkar
 
     const bookingQuery = {
       bookingDate: date,
     };
 
-    // ** ei j date ashlo ei date er agaisnt a joto booking ase shob booking k ber kore nibo
-
     const bookings = await bookingsCollection.find(bookingQuery).toArray();
 
-    // ** kon kon treatment option er jonno oi j amader selected date er against a booking ase sei sei treatment k amra ber kore nibo
-
     options.forEach((option) => {
-      const treatmentOptionBooked = bookings.filter(
+      const treatmentBooked = bookings.filter(
         (book) => book.treatmentName === option.name
       );
-      console.log(treatmentOptionBooked);
-      const slotsBookedInTreatmentOption = treatmentOptionBooked.map(
-        (optionBook) => optionBook.slot
+      const slotsbookedForThatIndividualTreatment = treatmentBooked.map(
+        (book) => book.slot
       );
 
       const remainingSlots = option.slots.filter(
-        (slot) => !slotsBookedInTreatmentOption.includes(slot)
+        (slot) => !slotsbookedForThatIndividualTreatment.includes(slot)
       );
 
       option.slots = remainingSlots;
@@ -83,7 +88,7 @@ app.get("/appointmentoptions", async (req, res) => {
     return res.send({
       success: true,
       data: options,
-      message: `appointment options fetched successfully`,
+      message: "Data has been fetched successfully",
     });
   } catch (error) {
     res.send({
@@ -93,9 +98,79 @@ app.get("/appointmentoptions", async (req, res) => {
   }
 });
 
+// app.get("/v2/appointmentoptions", async (req, res) => {
+//   try {
+//     const date = req.query.date;
+
+//     const options = await appointmentOptionCollection
+//       .aggregate([
+//         {
+//           $lookup: {
+//             from: "bookings",
+//             localField: "name",
+//             foreignField: "treatmentName",
+//             pipeline: [
+//               {
+//                 $match: {
+//                   $expr: {
+//                     $eq: ["$bookingDate", date],
+//                   },
+//                 },
+//               },
+//               {
+//                 $project: {
+//                   name: 1,
+//                   slots: 1,
+//                   booked: {
+//                     $map: { input: "$booked", as: "book", in: "$$book.slot" },
+//                   },
+//                 },
+//               },
+//               {
+//                 $project: {
+//                   name: 1,
+//                   slots: { $setDifference: ["$slots", "booked"] },
+//                 },
+//               },
+//             ],
+//             as: "booked",
+//           },
+//         },
+//       ])
+//       .toArray();
+//     return res.send({
+//       success: true,
+//       data: options,
+//       message: `appointment options fetched successfully`,
+//     });
+//   } catch (error) {
+//     res.send({
+//       success: false,
+//       message: error.message,
+//     });
+//   }
+// });
+
 app.post("/bookings", async (req, res) => {
   try {
     const booking = req.body;
+    // console.log(booking);
+
+    // const query = {
+    //   bookingDate: booking.bookingDate,
+    //   email: booking.email,
+    //   treatmentName: booking.treatmentName,
+    // };
+
+    // const findBookings = await bookingsCollection.find(query).toArray();
+
+    // if (findBookings.length) {
+    //   return res.send({
+    //     success: false,
+    //     message: `Booking has been already made on this date ${booking.bookingDate}`,
+    //   });
+    // }
+
     const result = await bookingsCollection.insertOne(booking);
 
     return res.send({
