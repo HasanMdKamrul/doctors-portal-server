@@ -4,6 +4,7 @@ const cors = require("cors");
 require("dotenv").config();
 const app = express();
 const port = process.env.PORT || 15000;
+const jwt = require("jsonwebtoken");
 
 // ** Middleware
 
@@ -43,6 +44,37 @@ const appointmentOptionCollection = client
 
 const bookingsCollection = client.db("doctorsPortal").collection("bookings");
 const userCollection = client.db("doctorsPortal").collection("users");
+
+// ** JWT verification
+
+const verifyJWT = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+
+  // console.log(authHeader);
+
+  if (!authHeader) {
+    return res.status(401).send({
+      success: false,
+      message: "Unauthorised access",
+    });
+  }
+
+  // ** Token verification
+
+  const token = authHeader.split(" ")[1];
+
+  jwt.verify(token, process.env.ACCESS_TOKEN, (err, decoded) => {
+    if (err) {
+      return res.status(401).send({
+        success: false,
+        message: "Unauthorised access",
+      });
+    } else {
+      req.decoded = decoded;
+      next();
+    }
+  });
+};
 
 // ** Apis
 
@@ -189,8 +221,10 @@ app.post("/bookings", async (req, res) => {
 
 // ** get all the bookings according to the user email address
 
-app.get("/bookings", async (req, res) => {
+app.get("/bookings", verifyJWT, async (req, res) => {
   try {
+    console.log(req.decoded);
+
     const email = req.query.email;
 
     const query = {
@@ -232,6 +266,48 @@ app.post("/users", async (req, res) => {
     });
   }
 });
+
+// *** JWT TOKEN ***
+
+// **  logged in howar por user -> server a jwt token er jonno request korbe
+// ** Jodi user er data age thke backend a thake amra user k jwt token dibo
+
+app.post("/jwt", async (req, res) => {
+  try {
+    const email = req.query.email;
+
+    const query = {
+      email: email,
+    };
+
+    const user = await userCollection.findOne(query);
+
+    if (user) {
+      const token = jwt.sign({ email: email }, process.env.ACCESS_TOKEN, {
+        expiresIn: "1d",
+      });
+
+      return res.send({
+        success: true,
+        token: token,
+        message: `Token has been generated`,
+      });
+    } else {
+      return res.send({
+        success: false,
+        token: "",
+        message: `Someting is wrong`,
+      });
+    }
+  } catch (error) {
+    res.send({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
+// *** JWT TOKEN ***
 
 // ** app listen
 
