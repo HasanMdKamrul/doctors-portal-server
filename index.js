@@ -42,6 +42,7 @@ const appointmentOptionCollection = client
   .collection("appointmentOptions");
 
 const bookingsCollection = client.db("doctorsPortal").collection("bookings");
+const userCollection = client.db("doctorsPortal").collection("users");
 
 // ** Apis
 
@@ -98,84 +99,131 @@ app.get("/appointmentoptions", async (req, res) => {
   }
 });
 
-// app.get("/v2/appointmentoptions", async (req, res) => {
-//   try {
-//     const date = req.query.date;
+// ** steps
+/* 
+    1. Kono perticular date e kono ekta treatment option er kono ekta slot a booking howar por j j slot faka thake ta ber kora holo kaj 
+    2. Perticular date a total booking nilam -> koto gula option er vinno vinno time slot a booking ase 
+    3. ekhon sort korbo first prottekta treatment option er moddhe diye jabo oi option er sathe kono booking data match kore kina ber korbo 
+    4. jodi match kore or jader ta filter kore match korbe -> sei sei booking data r vitor diye map chalay prottektar vitor theke tader joto gula slot booked oi info ber kore nibo 
+    5. Eibar remaining ta main option er slots k map kore bookedSlotes.includes(slot) ber kore niye option er slot hisabe set kore dibo 
+    */
+// ** Prottek option er booked slot theke , main option er slots bad diye remaining slots set korte parlei kaj sesh
 
-//     const options = await appointmentOptionCollection
-//       .aggregate([
-//         {
-//           $lookup: {
-//             from: "bookings",
-//             localField: "name",
-//             foreignField: "treatmentName",
-//             pipeline: [
-//               {
-//                 $match: {
-//                   $expr: {
-//                     $eq: ["$bookingDate", date],
-//                   },
-//                 },
-//               },
-//               {
-//                 $project: {
-//                   name: 1,
-//                   slots: 1,
-//                   booked: {
-//                     $map: { input: "$booked", as: "book", in: "$$book.slot" },
-//                   },
-//                 },
-//               },
-//               {
-//                 $project: {
-//                   name: 1,
-//                   slots: { $setDifference: ["$slots", "booked"] },
-//                 },
-//               },
-//             ],
-//             as: "booked",
-//           },
-//         },
-//       ])
-//       .toArray();
-//     return res.send({
-//       success: true,
-//       data: options,
-//       message: `appointment options fetched successfully`,
-//     });
-//   } catch (error) {
-//     res.send({
-//       success: false,
-//       message: error.message,
-//     });
-//   }
-// });
+app.get("/v2/appointmentoptions", async (req, res) => {
+  try {
+    const date = req.query.date;
 
+    const options = await appointmentOptionCollection
+      .aggregate([
+        {
+          $lookup: {
+            from: "bookings",
+            localField: "name",
+            foreignField: "treatmentName",
+            pipeline: [{ $match: { $expr: { $eq: ["$bookingDate", date] } } }],
+            as: "booked",
+          },
+        },
+        {
+          $project: {
+            name: 1,
+            slots: 1,
+            booked: {
+              $map: { input: "$booked", as: "book", in: "$$book.slot" },
+            },
+          },
+        },
+        {
+          $project: {
+            name: 1,
+            slots: { $setDifference: ["$slots", "$booked"] },
+          },
+        },
+      ])
+      .toArray();
+
+    return res.send({
+      success: true,
+      data: options,
+      message: `Data successfully fetched`,
+    });
+  } catch (error) {
+    res.send({
+      success: false,
+      message: "Treatment Options cannot be fetched",
+    });
+  }
+});
 app.post("/bookings", async (req, res) => {
   try {
     const booking = req.body;
-    // console.log(booking);
 
-    // const query = {
-    //   bookingDate: booking.bookingDate,
-    //   email: booking.email,
-    //   treatmentName: booking.treatmentName,
-    // };
+    const query = {
+      bookingDate: booking.bookingDate,
+      email: booking.email,
+      treatmentName: booking.treatmentName,
+    };
 
-    // const findBookings = await bookingsCollection.find(query).toArray();
+    const bookingsData = await bookingsCollection.find(query).toArray();
 
-    // if (findBookings.length) {
-    //   return res.send({
-    //     success: false,
-    //     message: `Booking has been already made on this date ${booking.bookingDate}`,
-    //   });
-    // }
+    if (bookingsData.length) {
+      res.send({
+        success: false,
+        message: `You have already booked this once`,
+      });
+    }
 
     const result = await bookingsCollection.insertOne(booking);
 
     return res.send({
       success: true,
       message: `Booking has been confirmed`,
+    });
+  } catch (error) {
+    res.send({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
+// ** get all the bookings according to the user email address
+
+app.get("/bookings", async (req, res) => {
+  try {
+    const email = req.query.email;
+
+    const query = {
+      email: email,
+    };
+
+    const bookingsData = await bookingsCollection.find(query).toArray();
+
+    return res.send({
+      success: true,
+      data: bookingsData,
+      message: `Booking retrive for this user: ${email}`,
+    });
+  } catch (error) {
+    res.send({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
+// ** Save the user data to the db
+
+app.post("/users", async (req, res) => {
+  try {
+    const user = req.body;
+    console.log(user);
+    const result = await userCollection.insertOne(user);
+
+    return res.send({
+      success: true,
+      data: result,
+      message: `User Created Successfully`,
     });
   } catch (error) {
     res.send({
