@@ -47,8 +47,38 @@ const bookingsCollection = client.db("doctorsPortal").collection("bookings");
 
 app.get("/appointmentoptions", async (req, res) => {
   try {
+    const date = req.query.date;
+
     const query = {};
     const options = await appointmentOptionCollection.find(query).toArray();
+
+    // ** ekhon amra j date pailam ei date er against a koto gula booking ase total booking ta ber kore felbo
+
+    const bookingQuery = {
+      bookingDate: date,
+    };
+
+    // ** ei j date ashlo ei date er agaisnt a joto booking ase shob booking k ber kore nibo
+
+    const bookings = await bookingsCollection.find(bookingQuery).toArray();
+
+    // ** kon kon treatment option er jonno oi j amader selected date er against a booking ase sei sei treatment k amra ber kore nibo
+
+    options.forEach((option) => {
+      const treatmentOptionBooked = bookings.filter(
+        (book) => book.treatmentName === option.name
+      );
+      console.log(treatmentOptionBooked);
+      const slotsBookedInTreatmentOption = treatmentOptionBooked.map(
+        (optionBook) => optionBook.slot
+      );
+
+      const remainingSlots = option.slots.filter(
+        (slot) => !slotsBookedInTreatmentOption.includes(slot)
+      );
+
+      option.slots = remainingSlots;
+    });
 
     return res.send({
       success: true,
@@ -66,8 +96,6 @@ app.get("/appointmentoptions", async (req, res) => {
 app.post("/bookings", async (req, res) => {
   try {
     const booking = req.body;
-    console.log(booking);
-
     const result = await bookingsCollection.insertOne(booking);
 
     return res.send({
