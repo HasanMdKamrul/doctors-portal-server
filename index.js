@@ -1,4 +1,4 @@
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
@@ -65,7 +65,7 @@ const verifyJWT = (req, res, next) => {
 
   jwt.verify(token, process.env.ACCESS_TOKEN, (err, decoded) => {
     if (err) {
-      return res.status(401).send({
+      return res.status(403).send({
         success: false,
         message: "Unauthorised access",
       });
@@ -223,9 +223,16 @@ app.post("/bookings", async (req, res) => {
 
 app.get("/bookings", verifyJWT, async (req, res) => {
   try {
-    console.log(req.decoded);
-
+    const verifiedEmail = req.decoded.email;
+    console.log(verifiedEmail);
     const email = req.query.email;
+
+    if (email !== verifiedEmail) {
+      return res.status(403).send({
+        success: false,
+        message: `Unauthorised access`,
+      });
+    }
 
     const query = {
       email: email,
@@ -251,13 +258,114 @@ app.get("/bookings", verifyJWT, async (req, res) => {
 app.post("/users", async (req, res) => {
   try {
     const user = req.body;
-    console.log(user);
+    // console.log(user);
+
     const result = await userCollection.insertOne(user);
 
     return res.send({
       success: true,
       data: result,
       message: `User Created Successfully`,
+    });
+  } catch (error) {
+    res.send({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
+// ** grab all the users for the admin
+
+app.get("/users", async (req, res) => {
+  try {
+    const query = {};
+    const users = await userCollection.find(query).toArray();
+
+    // console.log(users);
+
+    return res.send({
+      success: true,
+      data: users,
+      message: `Users fetched successfully`,
+    });
+  } catch (error) {
+    res.send({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
+// ** get the specific admin using their email
+
+app.get("/users/admin/:email", async (req, res) => {
+  try {
+    const email = req.params.email;
+
+    const query = {
+      email: email,
+    };
+
+    const user = await userCollection.findOne(query);
+
+    if (user?.role === "admin") {
+      return res.send({
+        success: true,
+        isAdmin: true,
+      });
+    }
+  } catch (error) {
+    res.send({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+// ** Admin role update
+
+app.put("/users/admin/:id", verifyJWT, async (req, res) => {
+  try {
+    const id = req.params.id;
+
+    console.log(id);
+
+    // ** user jodi token verified na thake take amra admin banate dibo na -> orthat jodi login kora na thake take amra admin banate dibo na (step 1)
+    const verifiedEmail = req.decoded.email;
+
+    const query = {
+      email: verifiedEmail,
+    };
+
+    const verifiedUser = await userCollection.findOne(query);
+
+    // ** step 2 -> ei khane amra check korbo se ashole admin kina , admin role check korbo -> jodi admin na hoi take access dibo na
+
+    if (verifiedUser?.role !== "admin") {
+      return res.status(401).send({
+        success: false,
+        message: "Unauthorised access",
+      });
+    }
+
+    const filter = {
+      _id: ObjectId(id),
+    };
+
+    const options = { upsert: true };
+
+    const updatedDoc = {
+      $set: {
+        role: "admin",
+      },
+    };
+
+    const result = await userCollection.updateOne(filter, updatedDoc, options);
+
+    return res.send({
+      success: true,
+      result: result,
+      message: "Document Updated",
     });
   } catch (error) {
     res.send({
