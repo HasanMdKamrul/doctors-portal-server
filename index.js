@@ -199,7 +199,7 @@ app.post("/bookings", async (req, res) => {
     const bookingsData = await bookingsCollection.find(query).toArray();
 
     if (bookingsData.length) {
-      res.send({
+      return res.send({
         success: false,
         message: `You have already booked this once`,
       });
@@ -277,10 +277,24 @@ app.post("/users", async (req, res) => {
 
 // ** grab all the users for the admin
 
-app.get("/users", async (req, res) => {
+app.get("/users", verifyJWT, async (req, res) => {
   try {
-    const query = {};
-    const users = await userCollection.find(query).toArray();
+    const email = req.decoded.email;
+
+    let query = {
+      email: email,
+    };
+
+    const isUserAdmin = await userCollection.findOne(query);
+
+    if (isUserAdmin.role !== "admin") {
+      return res.status(401).send({
+        success: false,
+        message: `Unauthorised access`,
+      });
+    }
+
+    const users = await userCollection.find({}).toArray();
 
     // console.log(users);
 
