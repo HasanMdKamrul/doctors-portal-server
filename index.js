@@ -77,6 +77,28 @@ const verifyJWT = (req, res, next) => {
   });
 };
 
+// ** verifyAdmin
+
+const verifyAdmin = async (req, res, next) => {
+  const decodedEmail = req.decoded.email;
+
+  console.log(decodedEmail);
+
+  if (decodedEmail) {
+    const query = {
+      email: decodedEmail,
+    };
+
+    const user = await userCollection.findOne(query);
+    if (user.role && user?.role !== "admin") {
+      return res.status(401).send({
+        success: false,
+        message: "Unauthorised access",
+      });
+    } else next();
+  }
+};
+
 // ** Apis
 
 app.get("/appointmentoptions", async (req, res) => {
@@ -301,23 +323,8 @@ app.post("/users", async (req, res) => {
 
 // ** grab all the users for the admin
 
-app.get("/users", verifyJWT, async (req, res) => {
+app.get("/users", verifyJWT, verifyAdmin, async (req, res) => {
   try {
-    const email = req.decoded.email;
-
-    let query = {
-      email: email,
-    };
-
-    const isUserAdmin = await userCollection.findOne(query);
-
-    if (isUserAdmin.role !== "admin") {
-      return res.status(401).send({
-        success: false,
-        message: `Unauthorised access`,
-      });
-    }
-
     const users = await userCollection.find({}).toArray();
 
     // console.log(users);
@@ -362,7 +369,7 @@ app.get("/users/admin/:email", async (req, res) => {
 });
 // ** Admin role update
 
-app.put("/users/admin/:id", verifyJWT, async (req, res) => {
+app.put("/users/admin/:id", verifyJWT, verifyAdmin, async (req, res) => {
   try {
     const id = req.params.id;
 
@@ -413,31 +420,9 @@ app.put("/users/admin/:id", verifyJWT, async (req, res) => {
   }
 });
 
-// ** verifyAdmin
-
-const verifyAdmin = async (req, res, next) => {
-  const decodedEmail = req.decoded.email;
-
-  console.log(decodedEmail);
-
-  if (decodedEmail) {
-    const query = {
-      email: decodedEmail,
-    };
-
-    const user = await userCollection.findOne(query);
-    if (user.role && user?.role !== "admin") {
-      return res.status(401).send({
-        success: false,
-        message: "Unauthorised access",
-      });
-    } else next();
-  }
-};
-
 // ** Add doctors
 
-app.post("/doctors", verifyJWT, async (req, res) => {
+app.post("/doctors", verifyJWT, verifyAdmin, async (req, res) => {
   try {
     const doctorData = req.body;
 
@@ -474,7 +459,7 @@ app.get("/doctors", verifyJWT, verifyAdmin, async (req, res) => {
 
 // ** Delete a doctor
 
-app.delete("/doctors/:id", verifyJWT, async (req, res) => {
+app.delete("/doctors/:id", verifyJWT, verifyAdmin, async (req, res) => {
   try {
     const id = req.params.id;
     const query = {
