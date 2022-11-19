@@ -186,14 +186,37 @@ app.get("/v2/appointmentoptions", async (req, res) => {
     });
   }
 });
+
+// ** Load only the treatment names from the appointmentOprions data
+
+app.get("/doctorSpeciality", async (req, res) => {
+  try {
+    const traetmentNames = await appointmentOptionCollection
+      .find({})
+      .project({ name: 1 })
+      .toArray();
+
+    return res.send({
+      success: true,
+      data: traetmentNames,
+      message: "Treatment names are fetched",
+    });
+  } catch (error) {
+    res.send({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
 app.post("/bookings", async (req, res) => {
   try {
     const booking = req.body;
 
     const query = {
-      bookingDate: booking.bookingDate,
-      email: booking.email,
-      treatmentName: booking.treatmentName,
+      bookingDate: booking?.bookingDate,
+      email: booking?.email,
+      treatmentName: booking?.treatmentName,
     };
 
     const bookingsData = await bookingsCollection.find(query).toArray();
