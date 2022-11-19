@@ -413,9 +413,31 @@ app.put("/users/admin/:id", verifyJWT, async (req, res) => {
   }
 });
 
+// ** verifyAdmin
+
+const verifyAdmin = async (req, res, next) => {
+  const decodedEmail = req.decoded.email;
+
+  console.log(decodedEmail);
+
+  if (decodedEmail) {
+    const query = {
+      email: decodedEmail,
+    };
+
+    const user = await userCollection.findOne(query);
+    if (user.role && user?.role !== "admin") {
+      return res.status(401).send({
+        success: false,
+        message: "Unauthorised access",
+      });
+    } else next();
+  }
+};
+
 // ** Add doctors
 
-app.post("/doctors", async (req, res) => {
+app.post("/doctors", verifyJWT, async (req, res) => {
   try {
     const doctorData = req.body;
 
@@ -435,7 +457,7 @@ app.post("/doctors", async (req, res) => {
 
 // ** get doctors
 
-app.get("/doctors", async (req, res) => {
+app.get("/doctors", verifyJWT, verifyAdmin, async (req, res) => {
   try {
     const doctors = await doctorCollection.find({}).toArray();
     return res.send({
@@ -452,7 +474,7 @@ app.get("/doctors", async (req, res) => {
 
 // ** Delete a doctor
 
-app.delete("/doctors/:id", async (req, res) => {
+app.delete("/doctors/:id", verifyJWT, async (req, res) => {
   try {
     const id = req.params.id;
     const query = {
