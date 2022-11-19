@@ -44,6 +44,7 @@ const appointmentOptionCollection = client
 
 const bookingsCollection = client.db("doctorsPortal").collection("bookings");
 const userCollection = client.db("doctorsPortal").collection("users");
+const doctorCollection = client.db("doctorsPortal").collection("doctors");
 
 // ** JWT verification
 
@@ -404,6 +405,67 @@ app.put("/users/admin/:id", verifyJWT, async (req, res) => {
       result: result,
       message: "Document Updated",
     });
+  } catch (error) {
+    res.send({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
+// ** Add doctors
+
+app.post("/doctors", async (req, res) => {
+  try {
+    const doctorData = req.body;
+
+    const result = await doctorCollection.insertOne(doctorData);
+
+    return res.send({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    res.send({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
+// ** get doctors
+
+app.get("/doctors", async (req, res) => {
+  try {
+    const doctors = await doctorCollection.find({}).toArray();
+    return res.send({
+      success: true,
+      data: doctors,
+    });
+  } catch (error) {
+    res.send({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
+// ** Delete a doctor
+
+app.delete("/doctors/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+    const query = {
+      _id: ObjectId(id),
+    };
+    const result = await doctorCollection.deleteOne(query);
+
+    if (result.deletedCount > 0) {
+      return res.send({
+        success: true,
+        data: result,
+      });
+    }
   } catch (error) {
     res.send({
       success: false,
