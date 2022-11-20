@@ -46,6 +46,7 @@ const appointmentOptionCollection = client
 const bookingsCollection = client.db("doctorsPortal").collection("bookings");
 const userCollection = client.db("doctorsPortal").collection("users");
 const doctorCollection = client.db("doctorsPortal").collection("doctors");
+const paymentCollection = client.db("doctorsPortal").collection("payments");
 
 // ** Stripe payment intent handle
 
@@ -65,6 +66,45 @@ app.post("/create-payment-intent", async (req, res) => {
   res.send({
     clientSecret: paymentIntent.client_secret,
   });
+});
+
+app.post("/payments", async (req, res) => {
+  try {
+    const payment = req.body;
+
+    const insertPayment = await paymentCollection.insertOne(payment);
+
+    const bookingId = payment.bookingId;
+    const transectionId = payment.transectionId;
+    const price = payment.price;
+
+    const filter = {
+      _id: ObjectId(bookingId),
+    };
+
+    const updatedDoc = {
+      $set: {
+        transectionId: transectionId,
+        paid: true,
+      },
+    };
+
+    const bookingUpdate = await bookingsCollection.updateOne(
+      filter,
+      updatedDoc
+    );
+
+    return res.send({
+      success: true,
+      data: insertPayment,
+      bookingData: bookingUpdate,
+    });
+  } catch (error) {
+    res.send({
+      success: false,
+      message: "Treatment Options cannot be fetched",
+    });
+  }
 });
 
 // ** JWT verification
