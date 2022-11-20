@@ -5,6 +5,7 @@ require("dotenv").config();
 const app = express();
 const port = process.env.PORT || 15000;
 const jwt = require("jsonwebtoken");
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 // ** Middleware
 
@@ -45,6 +46,26 @@ const appointmentOptionCollection = client
 const bookingsCollection = client.db("doctorsPortal").collection("bookings");
 const userCollection = client.db("doctorsPortal").collection("users");
 const doctorCollection = client.db("doctorsPortal").collection("doctors");
+
+// ** Stripe payment intent handle
+
+app.post("/create-payment-intent", async (req, res) => {
+  const booking = req.body;
+  const price = booking.price;
+
+  // ** Need to convert it into cents
+  const amount = price * 100;
+
+  const paymentIntent = await stripe.paymentIntents.create({
+    amount,
+    currency: "usd",
+    payment_method_types: ["card"],
+  });
+
+  res.send({
+    clientSecret: paymentIntent.client_secret,
+  });
+});
 
 // ** JWT verification
 
@@ -183,6 +204,7 @@ app.get("/v2/appointmentoptions", async (req, res) => {
           $project: {
             name: 1,
             slots: 1,
+            price: 1,
             booked: {
               $map: { input: "$booked", as: "book", in: "$$book.slot" },
             },
@@ -191,6 +213,7 @@ app.get("/v2/appointmentoptions", async (req, res) => {
         {
           $project: {
             name: 1,
+            price: 1,
             slots: { $setDifference: ["$slots", "$booked"] },
           },
         },
@@ -290,6 +313,29 @@ app.get("/bookings", verifyJWT, async (req, res) => {
       success: true,
       data: bookingsData,
       message: `Booking retrive for this user: ${email}`,
+    });
+  } catch (error) {
+    res.send({
+      success: false,
+      message: error.message,
+    });
+  }
+});
+
+// ** get a single booking info with their id
+
+app.get("/bookings/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+    const query = {
+      _id: ObjectId(id),
+    };
+
+    const booking = await bookingsCollection.findOne(query);
+
+    return res.send({
+      success: true,
+      data: booking,
     });
   } catch (error) {
     res.send({
@@ -419,6 +465,40 @@ app.put("/users/admin/:id", verifyJWT, verifyAdmin, async (req, res) => {
     });
   }
 });
+
+// ** add price to the existing db
+
+// app.put("/addPrice", async (req, res) => {
+//   try {
+//     const filter = {};
+
+//     const updatedDoc = {
+//       $set: {
+//         price: 99,
+//       },
+//     };
+
+//     const option = { upsert: true };
+
+//     const result = await appointmentOptionCollection.updateMany(
+//       filter,
+//       updatedDoc,
+//       option
+//     );
+
+//     console.log(result);
+
+//     return res.send({
+//       success: true,
+//       result,
+//     });
+//   } catch (error) {
+//     res.send({
+//       success: false,
+//       message: error.message,
+//     });
+//   }
+// });
 
 // ** Add doctors
 
