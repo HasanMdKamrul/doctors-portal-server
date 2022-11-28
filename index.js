@@ -7,6 +7,7 @@ const port = process.env.PORT || 15000;
 const jwt = require("jsonwebtoken");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const nodemailer = require("nodemailer");
+const mg = require("nodemailer-mailgun-transport");
 
 // ** Middleware
 
@@ -24,14 +25,23 @@ const sendEmail = (booking) => {
 
   console.log(email);
 
-  let transporter = nodemailer.createTransport({
-    host: "smtp.sendgrid.net",
-    port: 587,
+  const auth = {
     auth: {
-      user: "apikey",
-      pass: process.env.SENDGRID_API_KEY,
+      api_key: process.env.MAIL_API,
+      domain: process.env.MAIL_DOMAIN,
     },
-  });
+  };
+
+  // let transporter = nodemailer.createTransport({
+  //   host: "smtp.sendgrid.net",
+  //   port: 587,
+  //   auth: {
+  //     user: "apikey",
+  //     pass: process.env.SENDGRID_API_KEY,
+  //   },
+  // });
+
+  const transporter = nodemailer.createTransport(mg(auth));
 
   transporter.sendMail(
     {
