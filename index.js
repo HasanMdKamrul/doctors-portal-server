@@ -6,6 +6,7 @@ const app = express();
 const port = process.env.PORT || 15000;
 const jwt = require("jsonwebtoken");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+const nodemailer = require("nodemailer");
 
 // ** Middleware
 
@@ -16,19 +17,62 @@ app.use(express.json());
 
 app.get("/", async (req, res) => res.send(`Doctors portal is running `));
 
+// ** Send Email
+
+const sendEmail = (booking) => {
+  const { email, treatmentName, bookingDate, slot } = booking;
+
+  console.log(email);
+
+  let transporter = nodemailer.createTransport({
+    host: "smtp.sendgrid.net",
+    port: 587,
+    auth: {
+      user: "apikey",
+      pass: process.env.SENDGRID_API_KEY,
+    },
+  });
+
+  transporter.sendMail(
+    {
+      from: `kamrulhasan@iut-dhaka.edu`, // verified sender email
+      to: email, // recipient email
+      subject: "Test message subject", // Subject line
+      text: "Hello world!", // plain text body
+      html: `
+    
+    <div>
+    <p>Your Booking is for ${treatmentName}</p>
+    <p>Your Booking in ${bookingDate} at ${slot} is confirmed! </p>
+    </div>
+
+    `, // html body
+    },
+    function (error, info) {
+      if (error) {
+        console.log(error);
+      } else {
+        console.log("Email sent: " + info.response);
+      }
+    }
+  );
+};
+
 // ** DB Connections
 
-const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.7ikallh.mongodb.net/?retryWrites=true&w=majority`;
+const uri = `mongodb+srv://newUser:expoten@cluster0.7ikallh.mongodb.net/?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
   serverApi: ServerApiVersion.v1,
 });
 
+console.log(uri);
+
 // ** DB Connection
 const run = async () => {
   try {
-    await client.connect();
+    // await client.connect();
     console.log("db Connected");
   } catch (error) {
     console.log(error.message);
@@ -315,6 +359,10 @@ app.post("/bookings", async (req, res) => {
     }
 
     const result = await bookingsCollection.insertOne(booking);
+
+    // ** Send Email
+
+    sendEmail(booking);
 
     return res.send({
       success: true,
